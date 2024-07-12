@@ -13,5 +13,6 @@ data
 outputs
 checkpoints
 __pycache__
+submission.npy
 pip-selfcheck.json
 © 2021 GitHub, Inc.
