@@ -9,8 +9,8 @@ class EVFlowNet(nn.Module):
     def __init__(self, args):
         super(EVFlowNet,self).__init__()
         self._args = args
-
-        self.encoder1 = general_conv2d(in_channels = 4, out_channels=_BASE_CHANNELS, do_batch_norm=not self._args.no_batch_norm)
+        # encoderでの入力を2つのイベントデータに変更
+        self.encoder1 = general_conv2d(in_channels = 8, out_channels=_BASE_CHANNELS, do_batch_norm=not self._args.no_batch_norm)
         self.encoder2 = general_conv2d(in_channels = _BASE_CHANNELS, out_channels=2*_BASE_CHANNELS, do_batch_norm=not self._args.no_batch_norm)
         self.encoder3 = general_conv2d(in_channels = 2*_BASE_CHANNELS, out_channels=4*_BASE_CHANNELS, do_batch_norm=not self._args.no_batch_norm)
         self.encoder4 = general_conv2d(in_channels = 4*_BASE_CHANNELS, out_channels=8*_BASE_CHANNELS, do_batch_norm=not self._args.no_batch_norm)
@@ -61,7 +61,12 @@ class EVFlowNet(nn.Module):
         inputs = torch.cat([inputs, skip_connections['skip0']], dim=1)
         inputs, flow = self.decoder4(inputs)
         flow_dict['flow3'] = flow.clone()
-
+        # flowのサイズが異なるので0,1,2のサイズをバイリニア補間でflow3のサイズに合わせる
+        flow_dict['flow0'] = nn.functional.interpolate(flow_dict['flow0'], size=flow_dict['flow3'].shape[2:], mode='bilinear', align_corners=True)
+        flow_dict['flow1'] = nn.functional.interpolate(flow_dict['flow1'], size=flow_dict['flow3'].shape[2:], mode='bilinear', align_corners=True)
+        flow_dict['flow2'] = nn.functional.interpolate(flow_dict['flow2'], size=flow_dict['flow3'].shape[2:], mode='bilinear', align_corners=True)
+        # 4つのflowの平均を出力
+        flow = (flow_dict['flow0'] + flow_dict['flow1'] + flow_dict['flow2'] + flow_dict['flow3'])/4
         return flow
         
 

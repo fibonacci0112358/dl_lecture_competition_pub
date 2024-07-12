@@ -278,6 +278,15 @@ class Sequence(Dataset):
             'y': torch.from_numpy(y),
         }
         return self.voxel_grid.convert(event_data_torch)
+    
+    # def events_to_voxel_grids(self, p1, t1, x1, y1, p2, t2, x2, y2, device: str = 'cpu'):
+    #     # 最初のイベントデータセットをボクセルグリッドに変換
+    #     voxel_grid_1 = self.events_to_voxel_grid(p1, t1, x1, y1, device)
+    #     # 2番目のイベントデータセットをボクセルグリッドに変換
+    #     voxel_grid_2 = self.events_to_voxel_grid(p2, t2, x2, y2, device)
+    #     # 2つのイベントデータを結合
+    #     combined_pt_array = torch.cat([voxel_grid_1, voxel_grid_2], dim=0)
+    #     return combined_pt_array
 
     def getHeightAndWidth(self):
         return self.height, self.width
@@ -319,6 +328,9 @@ class Sequence(Dataset):
     def get_data(self, index) -> Dict[str, any]:
         ts_start: int = self.timestamps_flow[index] - self.delta_t_us
         ts_end: int = self.timestamps_flow[index]
+        # オプティカルフローの後のイベントデータを取得
+        ts_start2: int = self.timestamps_flow[index]
+        ts_end2: int = self.timestamps_flow[index] + self.delta_t_us
 
         file_index = self.indices[index]
 
@@ -332,10 +344,19 @@ class Sequence(Dataset):
         output['visualize'] = self.visualize_samples
         event_data = self.event_slicer.get_events(
             ts_start, ts_end)
+        
         p = event_data['p']
         t = event_data['t']
         x = event_data['x']
         y = event_data['y']
+
+        # ２つのイベントデータを取得
+        event_data2 = self.event_slicer.get_events(
+            ts_start2, ts_end2)
+        p2 = event_data2['p']
+        t2 = event_data2['t']
+        x2 = event_data2['x']
+        y2 = event_data2['y']
 
         xy_rect = self.rectify_events(x, y)
         x_rect = xy_rect[:, 0]
@@ -346,7 +367,10 @@ class Sequence(Dataset):
         else:
             event_representation = self.events_to_voxel_grid(
                 p, t, x_rect, y_rect)
-            output['event_volume'] = event_representation
+            event_representation2 = self.events_to_voxel_grid(
+                p2, t2, x2, y2)
+            # 2つのイベントデータを結合したものをoutput['event_volume']に格納
+            output['event_volume'] = torch.cat([event_representation, event_representation2], dim=0)
         output['name_map'] = self.name_idx
         
         if self.load_gt:
@@ -525,7 +549,7 @@ class SequenceRecurrent(Sequence):
                                 v, i, j, h, w) for v in value]
         return sequence
 
-
+# 訓練データと検証データを２つのイベントデータで取得する
 class DatasetProvider:
     def __init__(self, dataset_path: Path, representation_type: RepresentationType, delta_t_ms: int = 100, num_bins=4,
                 config=None, visualize=False):
