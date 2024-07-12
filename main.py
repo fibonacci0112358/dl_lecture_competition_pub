@@ -149,6 +149,10 @@ def main(args: DictConfig):
     # ------------------
     #   Start predicting
     # ------------------
+
+    # テスト済みのモデルをロードする場合
+    # model_path = "checkpoints/model_20240701050420.pth"
+
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
     flow: torch.Tensor = torch.tensor([]).to(device)
@@ -156,14 +160,14 @@ def main(args: DictConfig):
         print("start test")
         for batch in tqdm(test_data):
             batch: Dict[str, Any]
-            event_image = batch["event_volume_old"].to(device)
+            event_image = batch["event_volume"].to(device) # keyが異なるため修正
             batch_flow = model(event_image) # [1, 2, 480, 640]
             flow = torch.cat((flow, batch_flow), dim=0)  # [N, 2, 480, 640]
         print("test done")
     # ------------------
     #  save submission
     # ------------------
-    file_name = "submission.npy"
+    file_name = "submission" 
     save_optical_flow_to_npy(flow, file_name)
 
 if __name__ == "__main__":
